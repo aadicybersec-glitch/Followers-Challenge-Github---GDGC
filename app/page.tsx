@@ -16,7 +16,7 @@ type User = {
   followers: number;
 };
 
-// 3D Tilt Card
+// --- 3D Tilt Card ---
 const TiltCard = ({ children, className }: { children: React.ReactNode; className?: string }) => {
   const ref = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
@@ -52,7 +52,7 @@ const TiltCard = ({ children, className }: { children: React.ReactNode; classNam
   );
 };
 
-// Rank Badge
+// --- Rank Badge ---
 const RankBadge = ({ rank, isStageMode }: { rank: number; isStageMode: boolean }) => {
   if (rank === 0) return (
     <div className="relative flex items-center justify-center">
@@ -75,7 +75,7 @@ const RankBadge = ({ rank, isStageMode }: { rank: number; isStageMode: boolean }
   return <div className={cn("rounded-lg bg-white/5 flex items-center justify-center font-bold text-gray-500", isStageMode ? "w-12 h-12 text-xl" : "w-8 h-8 text-sm")}>{rank + 1}</div>;
 };
 
-// Animated Background
+// --- Animated Background ---
 const AnimatedBackground = () => (
   <div className="fixed inset-0 z-0 overflow-hidden bg-[#030014]">
     <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-700/20 blur-[120px] animate-pulse" />
@@ -88,6 +88,8 @@ export default function AttendeeDashboard() {
   const [users, setUsers] = useState<User[]>([]);
   const [timer, setTimer] = useState<{ started: boolean }>({ started: false });
   const [showWinner, setShowWinner] = useState<User | null>(null);
+  const [usernameInput, setUsernameInput] = useState("");
+  const [saving, setSaving] = useState(false);
   const broadcast = useRef<BroadcastChannel | null>(null);
 
   // --- BroadcastChannel for instant updates ---
@@ -107,7 +109,7 @@ export default function AttendeeDashboard() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await fetch("/api/users"); // make sure this API exists and returns {username, githubId, followers}
+        const res = await fetch("/api/users");
         const data = await res.json();
         setUsers(data.sort((a: User, b: User) => b.followers - a.followers));
       } catch (err) { console.error(err); }
@@ -121,7 +123,7 @@ export default function AttendeeDashboard() {
   useEffect(() => {
     const fetchTimer = async () => {
       try {
-        const res = await fetch("/api/timer"); // make sure this API exists and returns {started: boolean}
+        const res = await fetch("/api/timer");
         const data = await res.json();
         setTimer(data);
       } catch (err) { console.error(err); }
@@ -131,11 +133,54 @@ export default function AttendeeDashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  // --- Connect GitHub username ---
+  const handleConnectGithub = async () => {
+    if (!usernameInput) return alert("Enter your GitHub username");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: usernameInput }),
+      });
+      const data = await res.json();
+      if (data.error) alert(data.error);
+      else alert("Username saved!");
+      setUsernameInput("");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save username");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <main className="relative min-h-screen w-full flex flex-col items-center justify-start p-6 gap-8 font-sans text-white overflow-x-hidden selection:bg-indigo-500/30">
       <AnimatedBackground />
       <h1 className="text-5xl font-bold text-center mb-8">Attendee Dashboard</h1>
 
+      {/* Connect GitHub */}
+      <TiltCard className="w-full max-w-4xl p-6 flex flex-col gap-4">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Enter GitHub username"
+            value={usernameInput}
+            onChange={(e) => setUsernameInput(e.target.value)}
+            className="px-4 py-2 rounded-lg text-black flex-1"
+          />
+          <button
+            onClick={handleConnectGithub}
+            disabled={saving}
+            className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-white font-bold disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Connect GitHub"}
+          </button>
+        </div>
+      </TiltCard>
+
+      {/* Timer */}
       <TiltCard className="w-full max-w-4xl p-6 flex flex-col gap-6">
         <div className="flex items-center gap-4">
           <div className={`w-24 h-24 rounded-full flex items-center justify-center border-4 ${timer.started ? "border-green-500/50" : "border-red-500/50"}`}>
@@ -145,6 +190,7 @@ export default function AttendeeDashboard() {
         </div>
       </TiltCard>
 
+      {/* Live Standings */}
       <TiltCard className="w-full max-w-4xl p-6 overflow-y-auto max-h-[500px]">
         <h2 className="font-bold text-xl mb-4">Live Standings</h2>
         <table className="w-full text-left">
@@ -171,6 +217,7 @@ export default function AttendeeDashboard() {
         </table>
       </TiltCard>
 
+      {/* Winner Overlay */}
       <AnimatePresence>
         {showWinner && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setShowWinner(null)}>

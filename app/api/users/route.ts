@@ -12,9 +12,11 @@ export async function GET() {
     const client = await clientPromise;
     const db = client.db("github-game");
 
+    // Check if competition is running
     const timer = await db.collection("timer").findOne({});
     const competitionRunning = timer?.started ?? false;
 
+    // Fetch all users from DB
     const rawUsers = await db.collection("users").find({}).toArray();
     let users: User[] = rawUsers.map((doc) => ({
       githubId: doc.githubId,
@@ -45,14 +47,14 @@ export async function GET() {
       );
     }
 
-    // Sort descending
+    // Sort users by followers descending
     users.sort((a, b) => b.followers - a.followers);
     return NextResponse.json(users);
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
   }
-});
+}
 
 export async function POST(req: Request) {
   try {
@@ -64,9 +66,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing username or githubId" }, { status: 400 });
     }
 
+    // Upsert user into DB
     await db.collection("users").updateOne(
       { githubId },
-      { $set: { username, githubId } },
+      { $set: { username, githubId, followers: 0 } },
       { upsert: true }
     );
 
