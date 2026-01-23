@@ -107,7 +107,7 @@ export default function AttendeeDashboard() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await fetch("/api/users");
+        const res = await fetch("/api/users"); // make sure this API exists and returns {username, githubId, followers}
         const data = await res.json();
         setUsers(data.sort((a: User, b: User) => b.followers - a.followers));
       } catch (err) { console.error(err); }
@@ -121,7 +121,7 @@ export default function AttendeeDashboard() {
   useEffect(() => {
     const fetchTimer = async () => {
       try {
-        const res = await fetch("/api/timer");
+        const res = await fetch("/api/timer"); // make sure this API exists and returns {started: boolean}
         const data = await res.json();
         setTimer(data);
       } catch (err) { console.error(err); }
