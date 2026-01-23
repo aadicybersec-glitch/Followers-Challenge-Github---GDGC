@@ -12,7 +12,7 @@ function cn(...inputs: ClassValue[]) {
 
 type User = {
   username: string;
-  githubId: string;
+  githubId?: string;
   followers: number;
 };
 
@@ -105,7 +105,7 @@ export default function AttendeeDashboard() {
     return () => broadcast.current?.close();
   }, [users]);
 
-  // --- Fetch users every 3s ---
+  // --- Fetch users every 3s (only if timer is live) ---
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -115,9 +115,9 @@ export default function AttendeeDashboard() {
       } catch (err) { console.error(err); }
     };
     fetchUsers();
-    const interval = setInterval(fetchUsers, 3000);
+    const interval = setInterval(() => { if (timer.started) fetchUsers(); }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [timer.started]);
 
   // --- Fetch timer every 1s as backup ---
   useEffect(() => {
@@ -135,21 +135,27 @@ export default function AttendeeDashboard() {
 
   // --- Connect GitHub username ---
   const handleConnectGithub = async () => {
-    if (!usernameInput) return alert("Enter your GitHub username");
+    const username = usernameInput.trim();
+    if (!username) return alert("Enter your GitHub username");
     setSaving(true);
     try {
+      // Validate username exists on GitHub
+      const githubRes = await fetch(`https://api.github.com/users/${username}`);
+      if (!githubRes.ok) throw new Error("GitHub username not found");
+      const githubData = await githubRes.json();
+
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: usernameInput }),
+        body: JSON.stringify({ username, githubId: githubData.id }),
       });
       const data = await res.json();
       if (data.error) alert(data.error);
       else alert("Username saved!");
       setUsernameInput("");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Failed to save username");
+      alert(err.message || "Failed to save username");
     } finally {
       setSaving(false);
     }
@@ -205,7 +211,7 @@ export default function AttendeeDashboard() {
             <LayoutGroup>
               <AnimatePresence>
                 {users.map((user, idx) => (
-                  <motion.tr key={user.githubId} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="border-b border-white/10">
+                  <motion.tr key={user.githubId || user.username} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="border-b border-white/10">
                     <td className="px-4 py-2"><RankBadge rank={idx} isStageMode={false} /></td>
                     <td className="px-4 py-2">{user.username}</td>
                     <td className="px-4 py-2 text-right">{user.followers.toLocaleString()}</td>
