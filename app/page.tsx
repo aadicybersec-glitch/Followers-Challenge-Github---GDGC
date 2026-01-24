@@ -105,12 +105,38 @@ export default function AttendeeDashboard() {
     return () => broadcast.current?.close();
   }, [users]);
 
-  // --- Fetch users every 3s (only if timer is live) ---
+// --- Fetch users and update GitHub followers every 3s (only if timer is live) ---
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         const res = await fetch("/api/users");
-        const data = await res.json();
+        let data = await res.json();
+
+        if (timer.started && data.length > 0) {
+          // --- Update followers live from GitHub API ---
+          data = await Promise.all(
+            data.map(async (user: User) => {
+              try {
+                const githubRes = await fetch(`https://api.github.com/users/${user.username}`, {
+                  headers: {
+                    "Accept": "application/vnd.github+json",
+                  },
+                });
+
+                if (!githubRes.ok) return user;
+
+                const githubData = await githubRes.json();
+                const followers = typeof githubData.followers === "number" ? githubData.followers : user.followers;
+
+                return { ...user, followers };
+              } catch (err) {
+                console.error(`Failed to update ${user.username}:`, err);
+                return user;
+              }
+            })
+          );
+        }
+
         setUsers(data.sort((a: User, b: User) => b.followers - a.followers));
       } catch (err) { console.error(err); }
     };
